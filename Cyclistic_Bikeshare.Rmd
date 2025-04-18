@@ -1,0 +1,340 @@
+---
+title: "Cyclistic Bike Share Analysis"
+author: "Imran Hussain"
+date: "2025-04-17"
+output: html_document
+---
+___
+
+## Capstone Project for the Google Data Analytics Certificate
+
+#### Background
+Cyclistic is a bike-share company based in Chicago that launched a successful bike-sharing program in 2016. Throughout the years, the program has expanded significantly to a fleet of 5,824 bicycles and a network of 692 geotracked stations sprawled across the city. With the large number of bicycles across numerous stations, customers can rent bikes from one station and return them to any other station within the network at their convenience. This encourages people to opt for cycling as a mode of transportation, therefore contributing to the success of Cyclistic's bike-sharing program.
+
+Cyclistic's marketing strategy has so far focused on building general awareness and appealing to broad consumer segments. The company offers flexibile pricing plans that cater to diverse needs of users including single-ride passes, full-day passes, and annual memberships. Besides, it provides reclining bikes, hand tricycles, and cargo bikes, effectively welcoming individuals with disabilities and those who can't ride on the standard two-wheeled bicycles. Based on the company database, Cyclistic users are more likely to ride for leisure, but about 30% use them to commute to work each day. While traditional bikes remain as the popular option, around 8% of users opt for the assistive alternatives.
+
+The company's marketing director believes that the company’s future success depends on maximizing the number of annual memberships. Therefore, as a junior data analyst, my team and I have to understand how casual riders and annual members use Cyclistic bikes differently. From these insights, we will design a new marketing strategy to convert casual riders into annual members.
+
+___
+
+### Ask
+
+Understand the differences between casual and member usage by answering the following questions:
+
+* How do annual members and casual riders use Cyclistic bikes differently?
+* Why would casual riders buy Cyclistic annual memberships?
+* How can Cyclistic use digital media to influence casual riders to become         members?
+
+___
+    
+### Prepare
+
+Installing & Loading tidyverse and dplyr for data manipulation
+
+Dataset to be used for this analysis can be found at [divvy-tripdata](https://divvy-tripdata.s3.amazonaws.com/index.html). The data has been made available by Motivate International Inc. under this [license](https://divvybikes.com/data-license-agreement). The Q1 2020 and Q1 2021 (Q1 2019 data was unavailable) data were used in this analysis.
+
+___
+
+### Process 
+
+R was used to combine, clean, analyze and visualize. This includes the following files that were added:
+
+* Divvy_Trips_2020_Q1.csv
+* Divvy_Trips_2021_Q1.csv
+
+___
+
+### Analyze 
+
+#### Install packages necessary for manipulation, analysis and visualization
+```{r}
+install.packages("tidyverse")
+install.packages("dplyr")
+install.packages("janitor")
+library(tidyverse)
+library(dplyr)
+library(janitor)
+```
+
+#### Set working directory, read in csv files for analysis and assign to dataframes df1-df2
+```{r}
+setwd('/cloud/project/')
+df1 <- read_csv('/cloud/project/Divvy_Trips_2020_Q1.csv')
+df2 <- read_csv('/cloud/project/Divvy_Trips_2021_Q1.csv')
+```
+
+#### Change start and end station IDs to numerical data type from character in df2 for consistency and union of dataframes
+```{r}
+df2$start_station_id =as.numeric(as.character(df2$start_station_id))
+df2$end_station_id = as.numeric(as.character(df2$end_station_id))
+```
+
+#### Combine dataframes via bind_rows and assign to the bikeshare_data dataframe
+```{r}
+bikeshare_data <- bind_rows(df1, df2)
+```
+
+#### Find and remove records with null values
+```{r}
+bikeshare_data <- na.omit(bikeshare_data)
+```
+
+#### Change data type of ride_length field to numeric and check summary statistics
+```{r}
+bikeshare_data$ride_length <- as.numeric(bikeshare_data$ride_length)
+summary(bikeshare_data$ride_length)
+```
+
+#### Create histogram for breadth of values of ride_length field
+```{r}
+hist(bikeshare_data$ride_length)
+```
+
+#### Find IQR and outliers of ride_length
+```{r}
+Q1 <- quantile(bikeshare_data$ride_length, .25)
+Q3 <- quantile(bikeshare_data$ride_length, .75)
+IQR <- IQR(bikeshare_data$ride_length)
+outliers <- subset(bikeshare_data, bikeshare_data$ride_length<(Q1 - 1.5*IQR) | bikeshare_data$ride_length>(Q3 + 1.5*IQR))
+dim(outliers)
+```
+
+#### It is reasonable to assume that bikes will be returned daily, so we're limiting ride length to 8 hours max and and 5 minutes minimum
+```{r}
+bikeshare_data <- bikeshare_data[!(bikeshare_data$ride_length > 480),]
+bikeshare_data <- bikeshare_data[!(bikeshare_data$ride_length < 5),]
+```
+
+#### Looking at boxplot after removal of bad records to see distribution of values
+```{r}
+ggplot(bikeshare_data, aes(x=member_casual, y=ride_length, fill=member_casual)) +
+  geom_boxplot()
+```
+
+#### Ensure there are no records after clean up that contain NA
+```{r}
+rows_with_na <- bikeshare_data[apply(bikeshare_data, 1, function(x) any(is.na(x))
+  ), ]
+```
+
+#### Install and load lubridate so we can create date, hour, weekday, month, year and time_start fields and convert to appropriate data type for aggregate analysis
+```{r}
+install.packages("lubridate")
+library(lubridate)
+bikeshare_data$date <- ymd_hms(bikeshare_data$started_at)
+bikeshare_data$weekday <- weekdays(bikeshare_data$date)
+bikeshare_data$month_number <- format(bikeshare_data$date, "%m")
+bikeshare_data$month_number <- as.numeric(bikeshare_data$month_number)
+bikeshare_data$month <- month.name[bikeshare_data$month_number]
+bikeshare_data$year <- year(bikeshare_data$date)
+bikeshare_data$year <- as.character(bikeshare_data$year)
+bikeshare_data$start_hour <- hour(bikeshare_data$date)
+```
+
+#### Aggregate rideable_type by month for Q1
+```{r}
+bikeshare_data %>% 
+  group_by(rideable_type, month) %>% 
+  summarize(count = n()) %>% 
+  arrange(desc(count))
+```
+
+#### Aggregate rideable_type by weekdays for Q1
+```{r}
+bikeshare_data %>%
+  group_by(rideable_type, weekday) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
+
+#### Aggregate rideable_type by year for Q1
+```{r}
+bikeshare_data %>%
+  group_by(rideable_type, year) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
+
+#### Aggregate member_casual riders by weekdays for Q1
+```{r}
+bikeshare_data %>%
+  group_by(member_casual, weekday) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
+
+#### Summarize member_casual riders by weekday for Q1
+```{r}
+bikeshare_data %>%
+  group_by(member_casual, weekday) %>%
+  summarise(number_of_rides = n(),
+            average_ride_duration = mean(ride_length),
+            median = median(ride_length))%>%
+            arrange(desc(number_of_rides))
+```
+
+#### Summary stats for member_casual riders for Q1
+```{r}
+bikeshare_data %>%
+  group_by(member_casual) %>%
+     summarise(total_rides = length(member_casual), 
+     percentage = total_rides/nrow(bikeshare_data) * 100,
+     avg_ride_length = mean(ride_length), 
+     median = median(ride_length))
+```
+
+#### Summary stats for rideable_type for Q1
+```{r}
+bikeshare_data %>%
+  group_by(rideable_type) %>%
+     summarise(total_rides = length(member_casual), 
+     percentage = total_rides/nrow(bikeshare_data) * 100,
+     avg_ride_length = mean(ride_length), 
+     median = median(ride_length))
+```
+
+#### Summarizing rideable_type by weekday for Q1
+```{r}
+bikeshare_data %>%
+  group_by(rideable_type, weekday) %>%
+  summarise(number_of_rides = n(),
+            average_ride_duration = mean(ride_length),
+            median = median(ride_length),
+            max = max(ride_length),
+            min = min(ride_length)) %>%
+  arrange(desc(number_of_rides))
+```
+
+#### Aggregate rideable_type by member_casual by day of week for Q1
+```{r}
+bikeshare_data %>% 
+  group_by(rideable_type,member_casual,weekday) %>% 
+  summarise(total_count=n()) %>%
+  arrange(desc(total_count))
+```
+
+#### Aggregate member_casual by month for Q1
+```{r}
+bikeshare_data %>%
+  group_by(member_casual, month) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
+
+#### Aggregate member_casual by rideable_type by weekday for Q1
+```{r}
+bikeshare_data %>%
+  group_by(member_casual, rideable_type, weekday) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+```
+
+#### Looking at top stations summary for Q1
+```{r}
+bikeshare_data %>%
+  group_by(start_station_name) %>%
+  summarise(total_count = length((start_station_name))) %>%
+  arrange(desc(total_count)) %>% top_n(10)
+```
+
+#### Looking at top stations use by member type for Q1
+```{r}
+bikeshare_data %>%
+  group_by(start_station_name, member_casual) %>%
+  summarise(total_count = length((start_station_name))) %>%
+  arrange(desc(total_count)) %>% top_n(10)
+```
+
+#### Looking at top stations by rideable type for Q1
+```{r}
+bikeshare_data %>%
+  group_by(start_station_name, rideable_type) %>%
+  summarise(total_count = length((start_station_name))) %>%
+  arrange(desc(total_count)) %>% top_n(10)
+```
+
+#### Aggregating top stations by member_type by rideable_type for Q1
+```{r}
+bikeshare_data %>%
+  group_by(start_station_name, member_casual, rideable_type) %>%
+  summarise(total_count = length((start_station_name))) %>%
+  arrange(desc(total_count)) %>% top_n(10)
+```
+
+#### Creating top stations dataframe
+```{r}
+top_station <- bikeshare_data %>%
+  group_by(start_station_name) %>%
+  summarise(total_count = length(na.omit(start_station_name))) %>%
+  arrange(desc(total_count)) %>% 
+  top_n(10)
+```
+
+___
+
+### Share
+
+Looking at various visualizations of the analysis to help better understand behavior
+
+#### Total rides by rideable_type for Q1
+```{r}
+ggplot(bikeshare_data, aes(x=rideable_type)) + geom_bar() + geom_text(aes(label = ..count..), stat = "count", colour = "black", hjust = 0.25, vjust = 0)
+```
+
+#### Total rides by member_casual for Q1
+```{r}
+ggplot(bikeshare_data, aes(x=member_casual)) + geom_bar() + geom_text(aes(label = ..count..), stat = "count", colour = "black", hjust = 0.25, vjust = 0)
+```
+
+#### Top start_stations by total rides for Q1
+```{r}
+ ggplot(data  = top_station) +
+  geom_col(mapping = aes(x = start_station_name, y = total_count, 
+                         fill = start_station_name), position = "dodge") +
+  labs(title = "Top Ten Start Station") + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+#### Ride length by day of week for Q1
+```{r}
+ bikeshare_data %>%
+  group_by(member_casual, day_of_week) %>% 
+  summarise(average_ride_length = mean(ride_length)) %>% 
+  ggplot(aes(x = day_of_week, y = average_ride_length, fill = member_casual)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = format(round(average_ride_length, 2)), vjust = 0.5)) +
+  labs(title = "Avg Ride Length by Member Type by Day of Week")
+```
+
+#### Start time by weekdays for Q1
+```{r}
+bikeshare_data %>%
+  group_by(start_hour, weekday, member_casual) %>% 
+  summarise(number_of_rides = n()) %>%
+  ggplot(aes(x = start_hour, y = number_of_rides, fill = weekday, color = member_casual)) + 
+  geom_point(size = 3, alpha = 0.4) +
+  labs(title = "Start Hour for Weekdays") +
+  geom_line(size = 0.5)
+```
+
+___
+
+#### Summary
+* Both members and casual riders prefer docked bikes over classic and electric bikes.
+* The average ride time for members is 300 minutes and for casual riders is 318 minutes.
+* The most active days for members are Tuesdays, Thursdays and Wednesdays and 
+for casual riders Fridays, Wednesdays and Thursdays, respectively.
+* January is the more active month for Q1 for both member and casual riders.
+* Members make up 97.1% of the rides and casual riders compose the remaining 2.9%.
+* For members, we see a precipitous increase in usage starting at 8AM in the morning and again at 5PM in the evening.  Casual riders' start hours appear to be random for the most part, with peaks also around 8AM and 5PM.
+* As for station behavior, most of the volume occurs at Clinton St & Madison St.  For casual riders, Ellis Ave & 60th St. gets the most traffic.
+ 
+___
+
+### Act
+
+* Create Google Business Profiles for all stations to help with visibility in Google Search, Maps and local pack
+* Since electric bikes are used only 1.78% of the time, promoting them through social media, email and creating and optimizing content specifically for them may help bolster usage.
+* Casual riders only account for 2.89% of total rides, so targeting them through social media, email and creating and optimizing content specifically for them may help increase usage rates.
+* Incentivize casual riders to buy memberships through discounted rates or promotions.
+* Offer a rewards program to help with churn rate.
