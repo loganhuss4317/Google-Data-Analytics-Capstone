@@ -6,7 +6,7 @@ output: html_document
 ---
 ___
 
-## Capstone Project for the Google Data Analytics Certificate
+## Capstone Project for the Google Data Analytics Course
 
 #### Background
 Cyclistic is a bike-share company based in Chicago that launched a successful bike-sharing program in 2016. Throughout the years, the program has expanded significantly to a fleet of 5,824 bicycles and a network of 692 geotracked stations sprawled across the city. With the large number of bicycles across numerous stations, customers can rent bikes from one station and return them to any other station within the network at their convenience. This encourages people to opt for cycling as a mode of transportation, therefore contributing to the success of Cyclistic's bike-sharing program.
@@ -23,7 +23,7 @@ Understand the differences between casual and member usage by answering the foll
 
 * How do annual members and casual riders use Cyclistic bikes differently?
 * Why would casual riders buy Cyclistic annual memberships?
-* How can Cyclistic use digital media to influence casual riders to become         members?
+* How can Cyclistic use digital media to influence casual riders to become members?
 
 ___
     
